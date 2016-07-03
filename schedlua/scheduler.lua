@@ -30,7 +30,8 @@ local Scheduler_mt = {
 function Scheduler.init(self, ...)
 	--print("==== Scheduler.init ====")
 	local obj = {
-		TasksReadyToRun = Queue();
+		TasksReadyToRunPriority1 = Queue();
+		TasksReadyToRunPriority2 = Queue();
 	}
 	setmetatable(obj, Scheduler_mt)
 	
@@ -45,8 +46,11 @@ end
 		Instance Methods
 --]]
 
+-- steph - this method is not called anywhere !!
 function Scheduler.tasksPending(self)
-	return self.TasksReadyToRun:length();
+    -- steph
+	-- return self.TasksReadyToRun:length();
+	return self.TasksReadyToRunPriority1:length();
 end
 
 
@@ -54,7 +58,16 @@ end
 	Task Handling
 --]]
 
--- put a task on the ready list
+-- steph
+-- assume there are two priorities 1 and 2
+-- priority 1 is higher priority
+
+-- steph
+-- assume there is a ready list for each priority
+--    ready list for priority 1
+--    ready list for priority 2
+
+-- put a task on the correct ready list 
 -- the 'task' should be something that can be executed,
 -- whether it's a function, functor, or something that has a '__call'
 -- metamethod implemented.
@@ -69,7 +82,17 @@ function Scheduler.scheduleTask(self, task, params)
 	end
 
 	task:setParams(params);
-	self.TasksReadyToRun:enqueue(task);	
+
+    -- steph
+    -- put task on correct ready list
+	if task.priority == 1 then
+	  self.TasksReadyToRunPriority1:enqueue(task)	
+    elseif task.priority == 2 then
+	  self.TasksReadyToRunPriority2:enqueue(task)
+	else
+	  error("invalid operation")
+	end
+
 	task.state = "readytorun"
 
 	return task;
@@ -96,7 +119,12 @@ end
 
 function Scheduler.step(self)
 	-- Now check the regular fibers
-	local task = self.TasksReadyToRun:dequeue()
+	-- steph - check BOTH task ready lists
+	local task = self.TasksReadyToRunPriority1:dequeue()
+
+    if task == nil then
+      task = self.TasksReadyToRunPriority2:dequeue()
+    end 
 
 	-- If no fiber in ready queue, then just return
 	if task == nil then
